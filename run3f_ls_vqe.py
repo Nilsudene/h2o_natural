@@ -11,10 +11,10 @@ from params import pes_dict, co_dict
 from run2_surrogate import surrogates
 from h2o_vqe import vqe_pes
 
-
+pars = []
 # Run line-searches between PES combinations
 lsis = {}
-epsilon_p = [[0.02, 0.02], [0.01, 0.01]]
+epsilon_p = [[0.005, 0.005], [0.001, 0.001]]
 for xc_srg, pes_srg in pes_dict.items():
     lsis[xc_srg] = {}
     xc_ls = 'VQE'
@@ -34,14 +34,12 @@ for xc_srg, pes_srg in pes_dict.items():
             pes=pes_ls,
         )
         for i in range(4):
-            lsi.propagate(i, add_sigma=True)
+            lsi.propagate(i, add_sigma=False)
         # end for
         # Evaluate the latest eqm structure
-        lsi.pls().evaluate_eqm(add_sigma=True)
-        print(f'Line-search ({xc_ls} + random noise) on {xc_srg} surrogate with {eps_str} epsilons:')
+        lsi.pls().evaluate_eqm(add_sigma=False)
+        print(f'Line-search ({xc_ls}) on {xc_srg} surrogate with {eps_str} epsilons:')
         print(lsi)
-        print(surrogates['b3lyp'].structure.params)
-        print('^^Reference params^^')
         lsis[xc_srg][eps_str] = lsi
     # end for
 # end for
@@ -54,24 +52,14 @@ if __name__ == '__main__':
 
     for xc_srg in pes_dict:
         fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-        fig.suptitle(f'Line search convergence on {xc_srg} surrogate', fontsize=14)
         axs = axs.flatten()  # Turn 2x2 array into 1D for easy looping
 
-        ref_params = surrogates[xc_ls].structure.params
+        
 
         for idx, (eps, color) in enumerate(zip(epsilon_p, epsilon_colors)):
             ax = axs[idx]
             eps_str = ''.join(f'_{int(e * 1000):03d}' for e in eps)
 
-            ax.set_title(f'ε = [{eps[0]:.3f}, {eps[1]:.3f}]')
-            ax.scatter(
-                ref_params[0], ref_params[1] * to_deg,
-                s=200,
-                c="black",
-                label="B3LYP optimal geometry"
-            )
-            ax.set_xlim([ref_params[0] - 0.03, ref_params[0] + 0.03])
-            ax.set_ylim([(ref_params[1] - 0.03) * to_deg, (ref_params[1] + 0.03) * to_deg])
 
             if eps_str not in lsis[xc_srg]:
                 ax.set_visible(False)  # hide empty subplot
@@ -79,16 +67,6 @@ if __name__ == '__main__':
 
             lsi = lsis[xc_srg][eps_str]
 
-            # Plot error ellipse
-            ax.add_patch(patches.Ellipse(
-                (ref_params[0], ref_params[1] * to_deg),
-                2 * eps[0],
-                2 * eps[1] * to_deg,
-                edgecolor=color,
-                facecolor='none',
-                linestyle='-',
-                linewidth=1.5,
-            ))
 
             # Line search trajectory
             params = [lsi.pls(0).structure.params]
@@ -111,6 +89,7 @@ if __name__ == '__main__':
             )
 
             # Final point
+            pars.append([params[-1, 0], params[-1, 1]])
             ax.plot(params[-1, 0], params[-1, 1] * to_deg,
                     marker='x',
                     color=color,
@@ -126,9 +105,11 @@ if __name__ == '__main__':
 
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # leave space for suptitle
         
-        os.makedirs('figures', exist_ok=True)
+        os.makedirs('figures_vqe', exist_ok=True)
         
         fig_name = f'{xc_srg}_convergence.png'
         plt.savefig(f'figures_vqe/{fig_name}', dpi=300)
         print(f'Saved figure: {fig_name}')
         plt.close(fig)
+pars = np.array(pars)
+print("Convergence values:", np.mean(pars[:,0]), "pm", np.std(pars[:,0]), ",",np.mean(pars[:,1]), "pm", np.std(pars[:,1]) )

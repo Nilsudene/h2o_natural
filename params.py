@@ -2,7 +2,7 @@
 
 from numpy import array, sin, cos, ndarray, pi, random
 
-from pyscf import dft, scf
+from pyscf import dft, scf, cc
 from pyscf import gto
 from pyscf.geomopt.geometric_solver import optimize
 from pyscf.gto.mole import tofile
@@ -102,7 +102,7 @@ for sig in sigmas:
 # Treat a collection PESs based on alternative XC functionals
 xcs = ['pbe', 'b3lyp', 'lda', 'rhf']
 # Colors to go with different functionals for plotting
-colors = ['tab:blue', 'tab:orange', 'tab:green', 'rab:yellow']
+colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
 pes_dict = {}
 co_dict = {}
 for xc, color in zip(xcs, colors):

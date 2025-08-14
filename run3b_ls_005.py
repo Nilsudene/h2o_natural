@@ -9,7 +9,6 @@ from stalk import LineSearchIteration
 from params import pes_dict, co_dict
 from run2_surrogate import surrogates
 
-
 # Run line-searches between PES combinations
 lsis = {}
 epsilon_p = [0.005, 0.005]
@@ -29,10 +28,10 @@ for xc_srg, pes_srg in pes_dict.items():
             pes=pes_ls,
         )
         for i in range(4):
-            lsi.propagate(i, add_sigma=True)
+            lsi.propagate(i, add_sigma=False)
         # end for
         # Evaluate the latest eqm structure
-        lsi.pls().evaluate_eqm(add_sigma=True)
+        lsi.pls().evaluate_eqm(add_sigma=False)
         print(f'Line-search ({xc_ls} + noise) on {xc_srg} surrogate:')
         print(lsi)
         print(surrogates[xc_ls].structure.params)

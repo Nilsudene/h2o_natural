@@ -14,7 +14,7 @@ from stalk.params import PesFunction
 
 # Run line-searches between PES combinations
 lsis = {}
-epsilon_p = [[0.02, 0.02], [0.01, 0.01]]
+epsilon_p = [[0.01, 0.01]]
 
 
 for xc_srg, pes_srg in pes_dict.items():
@@ -26,12 +26,12 @@ for xc_srg, pes_srg in pes_dict.items():
         structure.shift_params([np.random.uniform(-0.1,0.1), np.random.uniform(-0.1,0.1)]) # only shifting if surrogate is the same as linesearch method
     # end if
     for eps in epsilon_p:
-        sigmas = [0.0]
+        sigmas = [0.0,0.01, 0.001]
         eps_str = ''.join(f'_{int(e * 1000):03d}' for e in eps)
         surrogates[xc_srg].optimize(epsilon_p=eps)
         sigmas.append(min(surrogates[xc_srg].sigma_opt))
         for sig in sigmas:
-            for k in range(100):
+            for k in range(25):
                 # Create a unique path for each line search iteration
                 sig_str = f"{sig:.5f}"
                 path = f'ls_hist/{xc_srg}-{xc_ls}-{eps_str}-{sig_str}-{k}'
@@ -48,7 +48,7 @@ for xc_srg, pes_srg in pes_dict.items():
                 for attempt in range(max_attempts):
                     try:
                         for i in range(4):
-                            lsi.propagate(i, add_sigma=True)
+                            lsi.propagate(i, add_sigma=False)
                         break
                     except ValueError as e:
                         print(f'attempt {attempt + 1} failed with error: {e}')
@@ -57,7 +57,7 @@ for xc_srg, pes_srg in pes_dict.items():
                             break
                 # end for
                 # Evaluate the latest eqm structure
-                lsi.pls().evaluate_eqm(add_sigma=True)
+                lsi.pls().evaluate_eqm(add_sigma=False)
                 print(f'Line-search ({xc_ls} + {sig_str} std) on {xc_srg} surrogate with {eps} epsilons:')
                 print(lsi)
                 print(surrogates[xc_ls].structure.params)

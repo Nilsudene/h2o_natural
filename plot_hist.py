@@ -9,7 +9,7 @@ from run2_surrogate import surrogates
 data = np.loadtxt('ls_hist/final_params.txt')
 
 epsilon_p = [[0.01, 0.01], [0.02, 0.02]]
-sigmas = [0.0, 'max sigma']
+sigmas = [0.0, "max sigma"]
 
 xc_ls = 'b3lyp'
 
