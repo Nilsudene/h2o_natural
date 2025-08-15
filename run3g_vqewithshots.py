@@ -7,14 +7,17 @@ import os
 
 from stalk import LineSearchIteration
 
-from params import pes_dict, co_dict
+from params import pes_dict, co_dict, forward
 from run2_surrogate import surrogates
 from h2o_vqe import vqe_pes, vqe_pes_function
+ref_geom = np.loadtxt("ccsd_ref_geom.txt")
+ref_params = forward(ref_geom)
+
 
 pars = []
 # Run line-searches between PES combinations
 lsis = {}
-shots = [1e5, 1e6, 1e7, 1e8]
+shots = [1e5, 1e6, 1e8, 1e12]
 trials = [1]
 epsilon_p = [0.001, 0.001]
 xc_srg = 'b3lyp'
@@ -41,6 +44,8 @@ for shots_count in shots:
         lsi.pls().evaluate_eqm(add_sigma=False)
         print(f'Line-search ({xc_ls}) on vqe with {shots_count} shots and {trial} trials per vqe:')
         print(lsi)
+        print(ref_params)
+        print('^^Reference params^^')
         lsis[shots_count][trial] = lsi
 # end for
 # end for
@@ -70,6 +75,22 @@ if __name__ == '__main__':
             params = np.array(params)
             params_err = np.array(params_err)
 
+            ax.scatter(
+                ref_params[0], ref_params[1] * to_deg,
+                s=200,
+                c="black",
+                label="CCSD optimal geometry"
+            )
+
+            """ellipse = patches.Ellipse(
+            (params[0], params[1] * to_deg),
+            2 * epsilon_p[0],
+            2 * epsilon_p[1] * to_deg,
+            color=co,
+            alpha=0.2
+            )
+            ax.add_patch(ellipse)"""
+
             ax.errorbar(
                 params[:, 0],
                 params[:, 1] * to_deg,
@@ -89,6 +110,7 @@ if __name__ == '__main__':
             ax.set_xlabel('Bond length (Å)')
             ax.set_ylabel('Bond angle (deg)')
             ax.grid(True)
+            ax.lengend()
 
             pars.append([params[-1, 0], params[-1, 1]])
 
@@ -97,9 +119,9 @@ if __name__ == '__main__':
         ax.set_visible(False)
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    os.makedirs('figures_vqe', exist_ok=True)
+    os.makedirs('figures_vqe_shotnoise', exist_ok=True)
     fig_name = 'vqe_convergence_grid.png'
-    plt.savefig(f'figures_vqe/{fig_name}', dpi=300)
+    plt.savefig(f'figures_vqe_shotnoise/{fig_name}', dpi=300)
     print(f'Saved figure: {fig_name}')
     plt.close(fig)
 
