@@ -12,7 +12,7 @@ from run2_surrogate import surrogates
 
 
 lsis = {}
-M_list = [4, 5, 7]
+M_list = [4, 5, 7, 9]
 epsilon_p = [[0.02, 0.02], [0.015, 0.015], [0.01, 0.01], [0.005, 0.005]]
 
 for xc_srg, pes_srg in pes_dict.items():
@@ -31,7 +31,7 @@ for xc_srg, pes_srg in pes_dict.items():
 
             path = f'ls_conv_m{M}/{xc_srg}-{xc_ls}-{eps_str}'
 
-            surrogates[xc_srg].optimize(epsilon_p=eps)
+            # surrogates[xc_srg].optimize(epsilon_p=eps) not necessary when plotting
 
             lsi = LineSearchIteration(
                 surrogate=surrogates[xc_srg],
@@ -44,17 +44,16 @@ for xc_srg, pes_srg in pes_dict.items():
                 lsi.propagate(i, add_sigma=False)
 
             # Evaluate the latest eqm structure
+            print(lsi.pls_list)
             lsi.pls().evaluate_eqm(add_sigma=False)
 
-            print(f'Line-search ({xc_ls}) on {xc_srg} surrogate with {eps_str} epsilons:')
+            print(f'Line-search ({xc_ls}) on {xc_srg} surrogate with {eps_str} epsilons and {M} evaluations:')
             for pls in lsi.pls_list:
                 if pls.evaluated:
                     if pls.structure.value == None:
                         pls.evaluate_eqm(add_sigma=False)
-                        print(pls.structure.value)
-                    else:
-                        print(pls.structure.value)
-            
+                    
+            print(lsi)
             print(surrogates[xc_ls].structure.params)
             print('^^Reference params^^')
 
@@ -65,7 +64,7 @@ for xc_srg, pes_srg in pes_dict.items():
 # Plot
 if __name__ == '__main__':
 
-    M_colors = ['tab:blue', 'tab:green', 'tab:orange']
+    M_colors = ['tab:blue', 'tab:green', 'tab:orange', 'tab:red']
 
     for xc_srg in pes_dict:
 
@@ -75,7 +74,7 @@ if __name__ == '__main__':
         fig, axs = plt.subplots(n_params + 1, len(epsilon_p), figsize=(4 * len(epsilon_p), 2.5 * (n_params + 1)))
         fig.suptitle(f'Line search convergence on {xc_srg} surrogate', fontsize=14)
 
-        ref_params = surrogates[xc_srg].structure.params
+        ref_params = surrogates[xc_ls].structure.params
 
         for col_idx, eps in enumerate(epsilon_p):
             ax_params_list = axs[:-1, col_idx]  # one subplot per parameter
@@ -88,23 +87,25 @@ if __name__ == '__main__':
                 # Collect data
                 params = [lsi.pls(0).structure.params]
                 params_err = [lsi.pls(0).structure.params_err]
-                energies = [lsi.pls(0).structure.value]
-                energies_err = [lsi.pls(0).structure.error]
+                energies = []
+                energies_err = []
                 for pls in lsi.pls_list:
+                    energies.append(pls.structure.value)
+                    energies_err.append(pls.structure.error)
                     if pls.evaluated:
                         params.append(pls.structure_next.params)
                         params_err.append(pls.structure_next.params_err)
-                        energies.append(pls.structure.value)
-                        energies_err.append(pls.structure.error)
 
-                params = np.array(params) - ref_params
+                params = abs(np.array(params) - ref_params)
                 params_err = np.array(params_err)
                 energies = np.array(energies)
                 energies_err = np.array(energies_err)
+                energies_err = np.array([0.0 if e is None else e for e in energies_err], dtype = float)
+                energies = np.array([0.0 if e is None else e for e in energies], dtype = float)
 
                 # Plot each parameter separately vs step with error bars
                 for p_idx, ax in enumerate(ax_params_list):
-                    label = f'M={M}' if m_idx == 0 else None  # only label first M to avoid duplicate legends
+                    label = f'M={M}'
                     ax.errorbar(
                         np.arange(len(params)),
                         params[:, p_idx],
@@ -116,9 +117,11 @@ if __name__ == '__main__':
                     )
                     ax.set_ylabel(f'Param {p_idx}')
                     ax.set_xlabel('Step')
+                    if p_idx == 0:
+                        ax.set_title(rf"$\epsilon$ = {eps[0]:.3f}")
 
                 # Plot energy vs step
-                label_energy = f'M={M}' if m_idx == 0 else None
+                label_energy = f'M={M}'
                 if energies_err is not None:
                     ax_energy.errorbar(
                         np.arange(len(energies)), energies, yerr=energies_err,
@@ -132,9 +135,9 @@ if __name__ == '__main__':
                 ax_energy.set_ylabel('Energy')
                 ax_energy.set_xlabel('Step')
 
-            # Add legends only once
+            
             for ax in list(ax_params_list) + [ax_energy]:
                 ax.legend()
 
-            plt.tight_layout()
-            plt.show()
+        plt.tight_layout()
+        plt.savefig(f'figures_m/{xc_srg}-surrogate.png')
