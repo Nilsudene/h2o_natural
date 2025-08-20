@@ -119,7 +119,8 @@ if __name__ == '__main__':
                     ax.set_ylabel(f'Param {p_idx}')
                     ax.set_xlabel('Step')
                     if p_idx == 0:
-                        ax.set_title(rf"$\epsilon$ = {eps[0]:.3f}")
+                        ax.set_title(rf"$\epsilon_p$ = {eps[0]:.3f}")
+                        
 
                 # Plot energy vs step
                 label_energy = f'M={M}'

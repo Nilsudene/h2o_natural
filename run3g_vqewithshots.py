@@ -21,11 +21,9 @@ def sci_notation(num, sig_figs=2):
     return f"{mantissa:.{sig_figs-1}f}·10^{exponent}"
 
 
-pars = []
-# Run line-searches between PES combinations
 lsis = {}
-# shots = [1e5, 1e6, 1e8]
-trials = [3]
+# shots = [1e5, 1e6, 1e7, 1e8]
+trials = [1,2,3,4]
 epsilon_p = [[0.01, 0.01]]
 xc_srg = 'b3lyp'
 xc_ls = 'VQE'
@@ -64,20 +62,21 @@ for shots_count in shots:
 # Plot
 if __name__ == '__main__':
 
-    
     param_colors = ['tab:red', 'tab:blue']  # r, θ
-
     n_params = len(surrogates[xc_srg].structure.params)
 
     # Two rows: params + energy, columns = len(M_list)
     fig, axs = plt.subplots(2, len(shots), figsize=(4 * len(shots), 5))
     fig.suptitle(f'Line search convergence on {xc_srg} surrogate', fontsize=14)
 
+    # Track global min/max
+    all_param_vals = []
+    all_energy_vals = []
 
     for col_idx, shot_count in enumerate(shots):
         eps = epsilon_p[0]  
         eps_str = ''.join(f'_{int(e * 1000):03d}' for e in eps)
-        lsi = lsis[shot_count][1]
+        lsi = lsis[shot_count][trials[0]]
 
         ax_params = axs[0, col_idx]
         ax_energy = axs[1, col_idx]
@@ -99,7 +98,11 @@ if __name__ == '__main__':
         energies = np.array([0.0 if e is None else e for e in energies], dtype=float)
         energies_err = np.array([0.0 if e is None else e for e in energies_err], dtype=float)
 
-        # Plot parameters (both in same subplot)
+        # Save values for global range
+        all_param_vals.extend(params.flatten())
+        all_energy_vals.extend(energies)
+
+        # Plot parameters
         for p_idx, p_color in zip(range(n_params), param_colors):
             label = r'$r$' if p_idx == 0 else r'$\theta$'
             ax_params.errorbar(
@@ -109,10 +112,10 @@ if __name__ == '__main__':
                 marker='o',
                 linestyle='-',
                 color=p_color,
-                label=label if col_idx == 0 else None  # only label once
+                label=label if col_idx == 0 else None
             )
-        ax_params.axhline(0, color='black', linestyle='--', linewidth=0.5, label='Reference')
-        ax_params.set_title(f'{sci_notation(shot_count)} shots')
+        ax_params.axhline(0, color='black', linestyle='--', linewidth=0.5, label='CCSD params')
+        ax_params.set_title(f'{sci_notation(shot_count)} shots, {trials[0]} trials')
         ax_params.set_ylabel(r'$\Delta$Parameter')
         ax_params.set_xlabel('Step')
 
@@ -124,16 +127,25 @@ if __name__ == '__main__':
             marker='o',
             linestyle='-',
             color='cornflowerblue',
-            label='Energy' if col_idx == 0 else None  # only label once
+            label='Energy' if col_idx == 0 else None
         )
         ax_energy.set_ylabel('Energy')
         ax_energy.set_xlabel('Step')
 
-        # Legends
         if col_idx == 0:
             ax_params.legend()
         ax_energy.legend()
 
+    # Set consistent y-limits
+    param_min, param_max = np.min(all_param_vals)-0.01, np.max(all_param_vals)+0.01
+    energy_min, energy_max = np.min(all_energy_vals)-0.001, np.max(all_energy_vals)+0.001
+
+    for col_idx in range(len(shots)):
+        axs[0, col_idx].set_ylim(param_min, param_max)
+        axs[1, col_idx].set_ylim(energy_min, energy_max)
+
     plt.tight_layout()
     os.makedirs('figures_vqe_shotnoise', exist_ok=True)
-    plt.savefig(f'figures_vqe_shotnoise/vqe_congergences.png')
+    plt.savefig('figures_vqe_shotnoise/vqe_convergence_varying_trials.png')
+    plt.show()
+

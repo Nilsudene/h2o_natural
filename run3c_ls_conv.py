@@ -13,8 +13,8 @@ from run2_surrogate import surrogates
 
 # Run line-searches between PES combinations
 lsis = {}
-M = 9
-epsilon_p = [[0.005, 0.005]]
+M = 4
+epsilon_p = [[0.02, 0.02]]
 
 xc_srg = 'rhf'
 pes_srg = pes_dict[xc_srg]
@@ -43,13 +43,13 @@ for eps in epsilon_p:
         lsi.propagate(i, add_sigma=True)
     # end for
     # Evaluate the latest eqm structure
-    for i in range(5):
-        lsi.pls(i).evaluate_eqm(add_sigma=True)
+    lsi.pls(3).evaluate_eqm(add_sigma=True)
+    for i in range(4):
+        lsi.pls(i).plot()
+        plt.show()
     print(f'Line-search ({xc_ls} + noise) on {xc_srg} surrogate with {eps_str} epsilons:')
     print(lsi)
     print(surrogates[xc_ls].structure.params)
     print('^^Reference params^^')
     lsis[xc_srg][eps_str][f'{M}'] = lsi
 # end for
-# end for
-
