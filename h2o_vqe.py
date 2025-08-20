@@ -65,6 +65,7 @@ def build_ansatz(problem, mapper):
     )
 
 backend = AerSimulator()
+
 def cost_func(theta, ansatz, estimator, observables, shots):
     if len(theta.shape) ==1:
 	    theta = theta.reshape(1,-1)

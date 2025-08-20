@@ -13,24 +13,34 @@ from h2o_vqe import vqe_pes, vqe_pes_function
 ref_geom = np.loadtxt("ccsd_ref_geom.txt")
 ref_params = forward(ref_geom)
 
+def sci_notation(num, sig_figs=2):
+    if num == 0:
+        return "0"
+    exponent = int(np.floor(np.log10(abs(num))))
+    mantissa = num / (10 ** exponent)
+    return f"{mantissa:.{sig_figs-1}f}·10^{exponent}"
+
 
 pars = []
 # Run line-searches between PES combinations
 lsis = {}
-shots = [1e5, 1e6, 1e8, 1e12]
-trials = [1]
-epsilon_p = [0.001, 0.001]
+# shots = [1e5, 1e6, 1e8]
+trials = [3]
+epsilon_p = [[0.01, 0.01]]
 xc_srg = 'b3lyp'
 xc_ls = 'VQE'
 structure = surrogates[xc_srg].structure.copy()
 # end if
+
+surrogates[xc_srg].optimize(epsilon_p=epsilon_p[0])
+shots = [1/min(surrogates[xc_srg].sigma_opt)**2]
+print(shots)
 for shots_count in shots:
     lsis[shots_count] = {}
     for trial in trials:
         pes_ls = vqe_pes_function(shots=shots_count, trials = trial)
         path = f'ls_vqe_shots/shots:{shots_count}reps:{trial}'
 
-        surrogates[xc_srg].optimize(epsilon_p=epsilon_p)
         lsi = LineSearchIteration(
             surrogate=surrogates[xc_srg],
             structure=structure,
@@ -53,80 +63,77 @@ for shots_count in shots:
 
 # Plot
 if __name__ == '__main__':
-    to_deg = 180 / np.pi
-    fig, axs = plt.subplots(4, 4, figsize=(16, 16))  # 4x4 grid
-    axs = axs.flatten()
-    subplot_idx = 0
 
-    for shots_count in shots:
-        for trial in trials:
-            lsi = lsis[shots_count][trial]
-            ax = axs[subplot_idx]
-            subplot_idx += 1
+    
+    param_colors = ['tab:red', 'tab:blue']  # r, θ
 
-            # Extract and plot the trajectory
-            params = [lsi.pls(0).structure.params]
-            params_err = [lsi.pls(0).structure.params_err]
-            for pls in lsi.pls_list:
-                if pls.evaluated:
-                    params.append(pls.structure_next.params)
-                    params_err.append(pls.structure_next.params_err)
+    n_params = len(surrogates[xc_srg].structure.params)
 
-            params = np.array(params)
-            params_err = np.array(params_err)
+    # Two rows: params + energy, columns = len(M_list)
+    fig, axs = plt.subplots(2, len(shots), figsize=(4 * len(shots), 5))
+    fig.suptitle(f'Line search convergence on {xc_srg} surrogate', fontsize=14)
 
-            ax.scatter(
-                ref_params[0], ref_params[1] * to_deg,
-                s=200,
-                c="black",
-                label="CCSD optimal geometry"
-            )
 
-            """ellipse = patches.Ellipse(
-            (params[0], params[1] * to_deg),
-            2 * epsilon_p[0],
-            2 * epsilon_p[1] * to_deg,
-            color=co,
-            alpha=0.2
-            )
-            ax.add_patch(ellipse)"""
+    for col_idx, shot_count in enumerate(shots):
+        eps = epsilon_p[0]  
+        eps_str = ''.join(f'_{int(e * 1000):03d}' for e in eps)
+        lsi = lsis[shot_count][1]
 
-            ax.errorbar(
-                params[:, 0],
-                params[:, 1] * to_deg,
-                xerr=params_err[:, 0],
-                yerr=params_err[:, 1] * to_deg,
+        ax_params = axs[0, col_idx]
+        ax_energy = axs[1, col_idx]
+
+        # Collect data
+        params = [lsi.pls(0).structure.params]
+        params_err = [lsi.pls(0).structure.params_err]
+        energies = []
+        energies_err = []
+        for pls in lsi.pls_list:
+            energies.append(pls.structure.value)
+            energies_err.append(pls.structure.error)
+            if pls.evaluated:
+                params.append(pls.structure_next.params)
+                params_err.append(pls.structure_next.params_err)
+
+        params = np.array(params) - ref_params
+        params_err = np.array(params_err)
+        energies = np.array([0.0 if e is None else e for e in energies], dtype=float)
+        energies_err = np.array([0.0 if e is None else e for e in energies_err], dtype=float)
+
+        # Plot parameters (both in same subplot)
+        for p_idx, p_color in zip(range(n_params), param_colors):
+            label = r'$r$' if p_idx == 0 else r'$\theta$'
+            ax_params.errorbar(
+                np.arange(len(params)),
+                params[:, p_idx],
+                yerr=params_err[:, p_idx],
                 marker='o',
-                linestyle='--',
-                color='tab:blue',
+                linestyle='-',
+                color=p_color,
+                label=label if col_idx == 0 else None  # only label once
             )
+        ax_params.axhline(0, color='black', linestyle='--', linewidth=0.5, label='Reference')
+        ax_params.set_title(f'{sci_notation(shot_count)} shots')
+        ax_params.set_ylabel(r'$\Delta$Parameter')
+        ax_params.set_xlabel('Step')
 
-            ax.plot(params[-1, 0], params[-1, 1] * to_deg,
-                    marker='x',
-                    color='red',
-                    markersize=10)
+        # Plot energy
+        ax_energy.errorbar(
+            np.arange(len(energies)),
+            energies,
+            yerr=energies_err,
+            marker='o',
+            linestyle='-',
+            color='cornflowerblue',
+            label='Energy' if col_idx == 0 else None  # only label once
+        )
+        ax_energy.set_ylabel('Energy')
+        ax_energy.set_xlabel('Step')
 
-            ax.set_title(f"Shots: {int(shots_count)}, Trials: {trial}")
-            ax.set_xlabel('Bond length (Å)')
-            ax.set_ylabel('Bond angle (deg)')
-            ax.grid(True)
-            ax.lengend()
+        # Legends
+        if col_idx == 0:
+            ax_params.legend()
+        ax_energy.legend()
 
-            pars.append([params[-1, 0], params[-1, 1]])
-
-    # Hide unused subplots
-    for ax in axs[subplot_idx:]:
-        ax.set_visible(False)
-
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.tight_layout()
     os.makedirs('figures_vqe_shotnoise', exist_ok=True)
-    fig_name = 'vqe_convergence_grid.png'
-    plt.savefig(f'figures_vqe_shotnoise/{fig_name}', dpi=300)
-    print(f'Saved figure: {fig_name}')
-    plt.close(fig)
-
-# --- Print convergence summary ---
-pars = np.array(pars)
-print("Convergence values:",
-      f"{np.mean(pars[:,0]):.4f} ± {np.std(pars[:,0]):.4f} Å,",
-      f"{(np.mean(pars[:,1]) * to_deg):.2f} ± {(np.std(pars[:,1]) * to_deg):.2f} deg")
+    plt.savefig(f'figures_vqe_shotnoise/vqe_congergences.png')

@@ -46,6 +46,7 @@ for xc_srg, pes_srg in pes_dict.items():
             # Evaluate the latest eqm structure
             print(lsi.pls_list)
             lsi.pls().evaluate_eqm(add_sigma=False)
+            lsi.pls(0).evaluate_eqm(add_sigma=False)
 
             print(f'Line-search ({xc_ls}) on {xc_srg} surrogate with {eps_str} epsilons and {M} evaluations:')
             for pls in lsi.pls_list:
@@ -140,4 +141,5 @@ if __name__ == '__main__':
                 ax.legend()
 
         plt.tight_layout()
+        os.makedirs('figures_m',exist_ok=True )
         plt.savefig(f'figures_m/{xc_srg}-surrogate.png')
